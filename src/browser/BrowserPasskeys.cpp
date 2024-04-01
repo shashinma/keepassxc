@@ -43,7 +43,9 @@ const QString BrowserPasskeys::AAGUID = QStringLiteral("fdb141b25d84443e8a354698
 // Authenticator capabilities
 const QString BrowserPasskeys::ATTACHMENT_CROSS_PLATFORM = QStringLiteral("cross-platform");
 const QString BrowserPasskeys::ATTACHMENT_PLATFORM = QStringLiteral("platform");
-const QString BrowserPasskeys::AUTHENTICATOR_TRANSPORT = QStringLiteral("internal");
+const QString BrowserPasskeys::AUTHENTICATOR_TRANSPORT_INTERNAL = QStringLiteral("internal");
+const QString BrowserPasskeys::AUTHENTICATOR_TRANSPORT_NFC = QStringLiteral("nfc");
+const QString BrowserPasskeys::AUTHENTICATOR_TRANSPORT_USB = QStringLiteral("usb");
 const bool BrowserPasskeys::SUPPORT_RESIDENT_KEYS = true;
 const bool BrowserPasskeys::SUPPORT_USER_VERIFICATION = true;
 
@@ -57,6 +59,11 @@ const QString BrowserPasskeys::PASSKEYS_ATTESTATION_NONE = QStringLiteral("none"
 
 const QString BrowserPasskeys::KPEX_PASSKEY_USERNAME = QStringLiteral("KPEX_PASSKEY_USERNAME");
 const QString BrowserPasskeys::KPEX_PASSKEY_CREDENTIAL_ID = QStringLiteral("KPEX_PASSKEY_CREDENTIAL_ID");
+
+// For compatibility with StrongBox
+const QString BrowserPasskeys::KPEX_PASSKEY_GENERATED_USER_ID = QStringLiteral("KPEX_PASSKEY_GENERATED_USER_ID");
+const QString BrowserPasskeys::KPXC_PASSKEY_USERNAME = QStringLiteral("KPXC_PASSKEY_USERNAME");
+
 const QString BrowserPasskeys::KPEX_PASSKEY_PRIVATE_KEY_PEM = QStringLiteral("KPEX_PASSKEY_PRIVATE_KEY_PEM");
 const QString BrowserPasskeys::KPEX_PASSKEY_RELYING_PARTY = QStringLiteral("KPEX_PASSKEY_RELYING_PARTY");
 const QString BrowserPasskeys::KPEX_PASSKEY_USER_HANDLE = QStringLiteral("KPEX_PASSKEY_USER_HANDLE");

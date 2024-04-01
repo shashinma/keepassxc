@@ -630,15 +630,18 @@ QJsonObject BrowserService::showPasskeysRegisterPrompt(const QJsonObject& public
     }
 
     const auto excludeCredentials = credentialCreationOptions["excludeCredentials"].toArray();
-    const auto rpId = publicKeyOptions["rp"]["id"].toString();
+    const auto rpId = credentialCreationOptions["rp"].toObject()["id"].toString();
     const auto timeout = publicKeyOptions["timeout"].toInt();
     const auto username = credentialCreationOptions["user"].toObject()["name"].toString();
+    const auto user = credentialCreationOptions["user"].toObject();
+    const auto userId = user["id"].toString();
 
     // Parse excludeCredentialDescriptorList
     if (!excludeCredentials.isEmpty() && isPasskeyCredentialExcluded(excludeCredentials, rpId, keyList)) {
         return getPasskeyError(ERROR_PASSKEYS_CREDENTIAL_IS_EXCLUDED);
     }
-    const auto existingEntries = getPasskeyEntries(rpId, keyList);
+
+    const auto existingEntries = getPasskeyEntriesWithUserHandle(rpId, userId, keyList);
 
     raiseWindow();
     BrowserPasskeysConfirmationDialog confirmDialog;
@@ -654,9 +657,6 @@ QJsonObject BrowserService::showPasskeysRegisterPrompt(const QJsonObject& public
         }
 
         const auto rpName = publicKeyOptions["rp"]["name"].toString();
-        const auto user = credentialCreationOptions["user"].toObject();
-        const auto userId = user["id"].toString();
-
         if (confirmDialog.isPasskeyUpdated()) {
             addPasskeyToEntry(confirmDialog.getSelectedEntry(),
                               rpId,
@@ -722,7 +722,7 @@ QJsonObject BrowserService::showPasskeysAuthenticationPrompt(const QJsonObject& 
         }
 
         const auto privateKeyPem = selectedEntry->attributes()->value(BrowserPasskeys::KPEX_PASSKEY_PRIVATE_KEY_PEM);
-        const auto credentialId = selectedEntry->attributes()->value(BrowserPasskeys::KPEX_PASSKEY_CREDENTIAL_ID);
+        const auto credentialId = passkeyUtils()->getCredentialIdFromEntry(selectedEntry);
         const auto userHandle = selectedEntry->attributes()->value(BrowserPasskeys::KPEX_PASSKEY_USER_HANDLE);
 
         auto publicKeyCredential =
@@ -788,13 +788,12 @@ void BrowserService::addPasskeyToEntry(Entry* entry,
 
     // Ask confirmation if entry already contains a Passkey
     if (entry->hasPasskey()) {
-        if (MessageBox::question(
-                m_currentDatabaseWidget,
-                tr("KeePassXC - Update Passkey"),
-                tr("Entry already has a Passkey.\nDo you want to overwrite the Passkey in %1 - %2?")
-                    .arg(entry->title(), entry->attributes()->value(BrowserPasskeys::KPEX_PASSKEY_USERNAME)),
-                MessageBox::Overwrite | MessageBox::Cancel,
-                MessageBox::Cancel)
+        if (MessageBox::question(m_currentDatabaseWidget,
+                                 tr("KeePassXC - Update Passkey"),
+                                 tr("Entry already has a Passkey.\nDo you want to overwrite the Passkey in %1 - %2?")
+                                     .arg(entry->title(), passkeyUtils()->getUsernameFromEntry(entry)),
+                                 MessageBox::Overwrite | MessageBox::Cancel,
+                                 MessageBox::Cancel)
             != MessageBox::Overwrite) {
             return;
         }
@@ -1129,7 +1128,7 @@ QJsonObject BrowserService::prepareEntry(const Entry* entry)
     QJsonObject res;
 #ifdef WITH_XC_BROWSER_PASSKEYS
     // Use Passkey's username instead if found
-    res["login"] = entry->hasPasskey() ? entry->attributes()->value(BrowserPasskeys::KPEX_PASSKEY_USERNAME)
+    res["login"] = entry->hasPasskey() ? passkeyUtils()->getUsernameFromEntry(entry)
                                        : entry->resolveMultiplePlaceholders(entry->username());
 #else
     res["login"] = entry->resolveMultiplePlaceholders(entry->username());
@@ -1348,6 +1347,22 @@ QList<Entry*> BrowserService::getPasskeyEntries(const QString& rpId, const Strin
     return entries;
 }
 
+// Returns all Passkey entries for the current Relying Party and identical user handle
+QList<Entry*> BrowserService::getPasskeyEntriesWithUserHandle(const QString& rpId,
+                                                              const QString& userId,
+                                                              const StringPairList& keyList)
+{
+    QList<Entry*> entries;
+    for (const auto& entry : searchEntries(rpId, "", keyList, true)) {
+        if (entry->hasPasskey() && entry->attributes()->value(BrowserPasskeys::KPEX_PASSKEY_RELYING_PARTY) == rpId
+            && entry->attributes()->value(BrowserPasskeys::KPEX_PASSKEY_USER_HANDLE) == userId) {
+            entries << entry;
+        }
+    }
+
+    return entries;
+}
+
 // Get all entries for the site that are allowed by the server
 QList<Entry*> BrowserService::getPasskeyAllowedEntries(const QJsonObject& assertionOptions,
                                                        const QString& rpId,
@@ -1363,7 +1378,7 @@ QList<Entry*> BrowserService::getPasskeyAllowedEntries(const QJsonObject& assert
         // If allowedCredentials.isEmpty() check if entry contains an extra attribute for user handle.
         // If that is found, the entry should be allowed.
         // See: https://w3c.github.io/webauthn/#dom-authenticatorassertionresponse-userhandle
-        if (allowedCredentials.contains(entry->attributes()->value(BrowserPasskeys::KPEX_PASSKEY_CREDENTIAL_ID))
+        if (allowedCredentials.contains(passkeyUtils()->getCredentialIdFromEntry(entry))
             || (allowedCredentials.isEmpty()
                 && entry->attributes()->hasKey(BrowserPasskeys::KPEX_PASSKEY_USER_HANDLE))) {
             entries << entry;
@@ -1385,7 +1400,7 @@ bool BrowserService::isPasskeyCredentialExcluded(const QJsonArray& excludeCreden
 
     const auto passkeyEntries = getPasskeyEntries(rpId, keyList);
     return std::any_of(passkeyEntries.begin(), passkeyEntries.end(), [&](const auto& entry) {
-        return allIds.contains(entry->attributes()->value(BrowserPasskeys::KPEX_PASSKEY_CREDENTIAL_ID));
+        return allIds.contains(passkeyUtils()->getCredentialIdFromEntry(entry));
     });
 }
 

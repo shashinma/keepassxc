@@ -322,6 +322,7 @@ void DatabaseOpenWidget::openDatabase()
             auto btn = msgBox->addButton(tr("Open database anyway"), QMessageBox::ButtonRole::AcceptRole);
             msgBox->setDefaultButton(btn);
             msgBox->addButton(QMessageBox::Cancel);
+            msgBox->layout()->setSizeConstraint(QLayout::SetMinimumSize);
             msgBox->exec();
             if (msgBox->clickedButton() != btn) {
                 m_db.reset(new Database());
@@ -582,10 +583,16 @@ void DatabaseOpenWidget::toggleQuickUnlockScreen()
 {
     if (canPerformQuickUnlock()) {
         m_ui->centralStack->setCurrentIndex(1);
-        m_ui->quickUnlockButton->setFocus();
+        // Work around qt issue where focus is stolen even if not visible
+        if (m_ui->quickUnlockButton->isVisible()) {
+            m_ui->quickUnlockButton->setFocus();
+        }
     } else {
         m_ui->centralStack->setCurrentIndex(0);
-        m_ui->editPassword->setFocus();
+        // Work around qt issue where focus is stolen even if not visible
+        if (m_ui->editPassword->isVisible()) {
+            m_ui->editPassword->setFocus();
+        }
     }
 }
 

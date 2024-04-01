@@ -109,12 +109,15 @@ int PasskeyUtils::validateRpId(const QJsonValue& rpIdValue, const QString& effec
         return ERROR_PASSKEYS_DOMAIN_RPID_MISMATCH;
     }
 
-    if (rpIdValue.isUndefined()) {
-        return ERROR_PASSKEYS_DOMAIN_RPID_MISMATCH;
-    }
-
     if (effectiveDomain.isEmpty()) {
         return ERROR_PASSKEYS_ORIGIN_NOT_ALLOWED;
+    }
+
+    //  The RP ID defaults to being the caller's origin's effective domain unless the caller has explicitly set
+    //  options.rp.id
+    if (rpIdValue.isUndefined() || rpIdValue.isNull()) {
+        *result = effectiveDomain;
+        return PASSKEYS_SUCCESS;
     }
 
     const auto rpId = rpIdValue.toString();
@@ -340,8 +343,10 @@ QStringList PasskeyUtils::getAllowedCredentialsFromAssertionOptions(const QJsonO
         const auto cred = credential.toObject();
         const auto id = cred["id"].toString();
         const auto transports = cred["transports"].toArray();
-        const auto hasSupportedTransport =
-            transports.isEmpty() || transports.contains(BrowserPasskeys::AUTHENTICATOR_TRANSPORT);
+        const auto hasSupportedTransport = transports.isEmpty()
+                                           || (transports.contains(BrowserPasskeys::AUTHENTICATOR_TRANSPORT_INTERNAL)
+                                               || transports.contains(BrowserPasskeys::AUTHENTICATOR_TRANSPORT_NFC)
+                                               || transports.contains(BrowserPasskeys::AUTHENTICATOR_TRANSPORT_USB));
 
         if (cred["type"].toString() == BrowserPasskeys::PUBLIC_KEY && hasSupportedTransport && !id.isEmpty()) {
             allowedCredentials << id;
@@ -349,4 +354,28 @@ QStringList PasskeyUtils::getAllowedCredentialsFromAssertionOptions(const QJsonO
     }
 
     return allowedCredentials;
+}
+
+// For compatibility with StrongBox (and other possible clients in the future)
+QString PasskeyUtils::getCredentialIdFromEntry(const Entry* entry) const
+{
+    if (!entry) {
+        return {};
+    }
+
+    return entry->attributes()->hasKey(BrowserPasskeys::KPEX_PASSKEY_GENERATED_USER_ID)
+               ? entry->attributes()->value(BrowserPasskeys::KPEX_PASSKEY_GENERATED_USER_ID)
+               : entry->attributes()->value(BrowserPasskeys::KPEX_PASSKEY_CREDENTIAL_ID);
+}
+
+// For compatibility with StrongBox (and other possible clients in the future)
+QString PasskeyUtils::getUsernameFromEntry(const Entry* entry) const
+{
+    if (!entry) {
+        return {};
+    }
+
+    return entry->attributes()->hasKey(BrowserPasskeys::KPXC_PASSKEY_USERNAME)
+               ? entry->attributes()->value(BrowserPasskeys::KPXC_PASSKEY_USERNAME)
+               : entry->attributes()->value(BrowserPasskeys::KPEX_PASSKEY_USERNAME);
 }
