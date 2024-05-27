@@ -24,6 +24,5 @@ fixes:
 ignore:
   - "src/gui/styles/**"
   - "src/thirdparty/**"
-  - "src/zxcvbn/**"
 comment:
   require_changes: true
